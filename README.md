@@ -1,25 +1,44 @@
-# 🛡️ WebHealer AI — Autonomous Web QA Agent
+# 🚀 PatchScan — Autonomous Web Audit & Code Remediation Platform
 
-> **Built for Breakpoint Hackathon 2026 (Hosted by Invoqe on Unstop)**  
-> **Tagline:** Autonomous QA Agent that crawls any live website, discovers broken features/console crashes, and generates ready-to-merge code fixes with Playwright tests.
+> **Stop Writing Tests. Start Shipping Fixes.**  
+> PatchScan is an autonomous web quality assurance engine that executes **10 parallel Playwright test suites** against any target URL and synthesizes **ready-to-run `.spec.ts` reproduction tests** and **unified `.diff` code patches** in under 60 seconds.
 
 ---
 
-## ⚡ What is WebHealer AI?
-WebHealer AI transforms manual QA testing into an autonomous, 30-second AI operation:
-1. **Enter Any URL:** No installation, no private repo tokens, no complicated setup required.
-2. **Autonomous Headless Exploration:** Playwright-powered crawler navigates the DOM, tests form submissions with boundary values, triggers navigation links, and intercepts console errors & 404 network failures.
-3. **AI Forensic Analysis & Code Generation:** The AI analyzes the runtime crash, isolates the root cause, and generates:
-   - 🧪 **A complete Playwright `.spec.ts` test file** to reproduce and prevent regression.
-   - 🛠️ **A unified code patch (`.diff`)** to fix the underlying Javascript/React error.
+## ⚡ Why PatchScan?
+
+Traditional QA tools only file bug tickets and complain (*"Here is a 500 error, go fix it"*).  
+**PatchScan actually closes the loop**:
+1. 🌐 **Zero Configuration**: No SDK to install, no script authoring. Just paste any staging, localhost, or production URL.
+2. 🤖 **10-Suite Autonomous Fleet**: Headless Playwright browsers audit Functional behavior, WCAG 2.1 AA Accessibility, Responsive viewports, Security headers, Core Web Vitals, API contracts, Concurrency, and more in parallel.
+3. 📡 **Real-Time Telemetry Stream**: Watch the sweep live with Server-Sent Events (SSE) streaming terminal logs, screenshot gallery, and risk counters.
+4. 🩹 **Instant Auto-Remediation**: Generates a Playwright `.spec.ts` reproduction script and a syntax-highlighted `.diff` patch ready to review and merge.
+
+---
+
+## 🛠️ The 10 Parallel QA Suites
+
+| # | Test Suite | What It Inspects & Audits |
+|---|---|---|
+| 1 | **Functional QA** | Form boundary limits (10,000-char stress tests), broken links, navigation response codes |
+| 2 | **Accessibility (WCAG 2.1 AA)** | Missing image `alt` attributes, unlabelled form inputs, text contrast ratios |
+| 3 | **Responsive Layout** | Horizontal overflow detection across Mobile (390px), Tablet (768px), and Desktop (1280px) |
+| 4 | **Security Headers** | `Content-Security-Policy`, `HSTS`, `X-Frame-Options`, `HttpOnly` cookie flags |
+| 5 | **Performance & Vitals** | Largest Contentful Paint (LCP), Cumulative Layout Shift (CLS), Time to First Byte (TTFB) |
+| 6 | **API Monitoring** | Intercepts `fetch`/XHR network responses to identify broken endpoints and CORS failures |
+| 7 | **File Upload / Download** | MIME-type boundaries and file upload input constraints |
+| 8 | **Cross-Browser** | DOM parity verification across Chromium, Firefox, and WebKit |
+| 9 | **Localization (i18n)** | `<html>` `lang` attributes, RTL direction rules, date/currency formatting |
+| 10 | **Concurrency & Load** | Multi-browser concurrent session stress testing and server stability |
 
 ---
 
 ## 🚀 Quick Start
 
-### 1. Install Dependencies
+### 1. Clone & Install Dependencies
 ```bash
-cd webhealer-ai
+git clone https://github.com/nividharan/patchscan.git
+cd patchscan
 npm install
 npx playwright install chromium
 ```
@@ -32,25 +51,54 @@ Open **[http://localhost:3000](http://localhost:3000)** in your browser.
 
 ---
 
-## 🎬 How to Demo to Hackathon Judges
+## 🧪 Demoing with the Built-in Sandbox
 
-1. **Option A: The 1-Click Sandbox Demo**
-   - Click the preset **"Target Sandbox"** (`http://localhost:3000/demo`).
-   - Click **"Launch QA Agent"**.
-   - Watch the live terminal stream as the agent finds:
-     - 💥 Unhandled Javascript TypeError in contact form validator
-     - 💥 HTTP 404 failure on enterprise checkout trigger
-     - 💥 Unhandled AuthSDK client error
-   - Show the generated Playwright test and suggested code patch!
-
-2. **Option B: Test a Judge's Live Website**
-   - Type any public URL (e.g. `https://news.ycombinator.com` or the judge's project link).
-   - Watch the agent crawl their live site and perform autonomous safety inspection.
+1. Navigate to `http://localhost:3000`.
+2. Click **Target Sandbox (/demo)** to target the built-in sandbox with planted accessibility, network, and exception bugs.
+3. Click **Run QA Sweep** to watch the autonomous agent inspect the page and generate fixes live!
 
 ---
 
 ## 🏗️ Architecture & Tech Stack
-- **Frontend:** Next.js 14 App Router, Tailwind CSS, Lucide Icons, Framer Motion
-- **Headless Crawler:** Playwright Chromium Automation Engine
-- **AI Diagnosis:** LLM Reasoning Engine (OpenAI GPT-4o / Intelligent AST Generator)
-- **Live Stream:** Real-time Event Logger & Screenshot Capture
+
+```
+   ┌─────────────────────────────────────────────────────────┐
+   │                   PatchScan Dashboard                   │
+   │      (Next.js 14 App Router · Tailwind CSS · TypeScript) │
+   └────────────────────────────┬────────────────────────────┘
+                                │  Server-Sent Events (SSE)
+                                ▼
+   ┌─────────────────────────────────────────────────────────┐
+   │                  Next.js Route Handlers                 │
+   │               (/api/scan & /api/scan/stream)            │
+   └────────────────────────────┬────────────────────────────┘
+                                │  Parallel Browser Contexts
+                                ▼
+   ┌─────────────────────────────────────────────────────────┐
+   │           Playwright Headless Browser Fleets            │
+   │        (Chromium · Firefox · WebKit · 10 Suites)        │
+   └────────────────────────────┬────────────────────────────┘
+                                │  Runtime Events & Telemetry
+                                ▼
+   ┌─────────────────────────────────────────────────────────┐
+   │                  Dual Forensic Engine                   │
+   │     AST Heuristics (Zero Key)  /  GPT-4o Reasoning      │
+   └────────────────────────────┬────────────────────────────┘
+                                │  Outputs
+                                ▼
+       ┌────────────────────────┴────────────────────────┐
+       │                                                 │
+       ▼                                                 ▼
+Playwright `.spec.ts` Repro Test              Unified `.diff` Code Patch
+```
+
+---
+
+## 📄 Presentation & Deck
+The executive pitch deck is included in this repository:
+- 📊 **`PatchScan_Pitch_Deck.pptx`** (Includes all 8 slides covering Problem, Solution, Architecture, Market, Comparison, Roadmap, and Implementation).
+
+---
+
+## 📜 License
+MIT License. Open source and built for high-velocity engineering teams.
