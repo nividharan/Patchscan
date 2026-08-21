@@ -11,7 +11,7 @@
 **Stop Writing Tests. Start Shipping Fixes.**  
 *Autonomous web quality assurance engine that executes 10 parallel Playwright sweeps on any target URL and synthesizes ready-to-run `.spec.ts` reproduction tests and unified `.diff` code patches in under 60 seconds.*
 
-[Live Demo](http://localhost:3000) • [Architecture](#-architecture--tech-stack) • [10 QA Suites](#-the-10-parallel-qa-suites) • [Quick Start](#-quick-start) • [Pitch Deck](#-presentation--pitch-deck)
+[Live Demo](http://localhost:3000) • [Architecture](#-architecture--tech-stack) • [10 QA Suites](#-the-10-parallel-qa-suites) • [Quick Start](#-quick-start) • [Roadmap](#-roadmap)
 
 </div>
 
@@ -109,13 +109,6 @@ Open **[http://localhost:3000](http://localhost:3000)** in your browser.
        ▼                                                 ▼
 Playwright `.spec.ts` Repro Test              Unified `.diff` Code Patch
 ```
-
----
-
-## 📊 Presentation & Pitch Deck
-
-The executive pitch deck is included directly in this repository:
-- 📁 **[`PatchScan_Pitch_Deck.pptx`](./PatchScan_Pitch_Deck.pptx)** — All 8 executive slides covering Problem, Solution, Architecture, Market Opportunity, Comparison Matrix, Roadmap, and Implementation.
 
 ---
 
