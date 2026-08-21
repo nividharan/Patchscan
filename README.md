@@ -11,7 +11,7 @@
 **Stop Writing Tests. Start Shipping Fixes.**  
 *Autonomous web quality assurance engine that executes 10 parallel Playwright sweeps on any target URL and synthesizes ready-to-run `.spec.ts` reproduction tests and unified `.diff` code patches in under 60 seconds.*
 
-[Live Demo](http://localhost:3000) • [Architecture](#-architecture--tech-stack) • [10 QA Suites](#-the-10-parallel-qa-suites) • [Roadmap](#-roadmap)
+[Architecture](#-architecture--tech-stack) • [10 QA Suites](#-the-10-parallel-qa-suites) • [Roadmap](#-roadmap)
 
 </div>
 
@@ -44,14 +44,6 @@ Traditional QA tools only file bug tickets and complain (*"Here is a 500 error, 
 | 8 | **Cross-Browser** | DOM parity verification across Chromium, Firefox, and WebKit | Cross-browser CSS fallbacks & polyfills |
 | 9 | **Localization (i18n)** | `<html>` `lang` attributes, RTL direction rules, date/currency formatting | Document locale tags & direction attributes |
 | 10 | **Concurrency & Load** | Multi-browser concurrent session stress testing and server stability | Connection throttling & race condition mitigations |
-
----
-
-## 🧪 Demoing with the Built-in Sandbox
-
-1. Navigate to `http://localhost:3000`.
-2. Click **Target Sandbox (/demo)** to target the built-in sandbox with planted accessibility, network, and exception bugs.
-3. Click **Run QA Sweep** to watch the autonomous agent inspect the page and generate fixes live!
 
 ---
 
