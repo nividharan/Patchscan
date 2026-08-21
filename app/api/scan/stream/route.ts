@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { crawlAndTestUrl, ScanConfig, DEFAULT_CONFIG, CrawlProgressEvent } from '@/lib/crawler';
+import { crawlAndTestUrl, runHttpFallbackScan, ScanConfig, DEFAULT_CONFIG, CrawlProgressEvent } from '@/lib/crawler';
 import { analyzeBugsWithAI } from '@/lib/analyzer';
 
 export const dynamic = 'force-dynamic';
@@ -33,13 +33,42 @@ export async function POST(req: NextRequest) {
         };
 
         try {
-          const rawBugs = await crawlAndTestUrl(
-            formattedUrl,
-            (event: CrawlProgressEvent) => {
-              send({ type: 'EVENT', event });
-            },
-            scanConfig
-          );
+          let rawBugs = [];
+          try {
+            rawBugs = await crawlAndTestUrl(
+              formattedUrl,
+              (event: CrawlProgressEvent) => {
+                send({ type: 'EVENT', event });
+              },
+              scanConfig
+            );
+          } catch (crawlErr: any) {
+            send({
+              type: 'EVENT',
+              event: {
+                type: 'LOG',
+                message: `Notice: Desktop binary restricted by host. Running Resilient HTTP/DOM Deep Probe...`,
+                timestamp: new Date().toLocaleTimeString(),
+              }
+            });
+            rawBugs = await runHttpFallbackScan(
+              formattedUrl,
+              scanConfig,
+              (type, message, suite, screenshotBase64) => {
+                send({
+                  type: 'EVENT',
+                  event: {
+                    type,
+                    message,
+                    timestamp: new Date().toLocaleTimeString(),
+                    suite,
+                    screenshotBase64,
+                  }
+                });
+              },
+              []
+            );
+          }
 
           send({
             type: 'EVENT',

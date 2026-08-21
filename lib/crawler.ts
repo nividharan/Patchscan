@@ -295,9 +295,12 @@ export async function crawlAndTestUrl(
     await primaryContext.close();
 
   } catch (err: any) {
-    emit('LOG', `Engine error: ${err.message}`);
+    emit('LOG', `Notice: Browser execution interrupted (${err.message}). Completing sweep with Resilient HTTP/DOM Probe...`);
+    if (allBugs.length === 0) {
+      return await runHttpFallbackScan(formattedUrl, config, emit, allBugs);
+    }
   } finally {
-    await primaryBrowser.close();
+    if (primaryBrowser) await primaryBrowser.close().catch(() => {});
     if (firefoxBrowser) await firefoxBrowser.close().catch(() => {});
     if (webkitBrowser) await webkitBrowser.close().catch(() => {});
   }
@@ -310,7 +313,7 @@ export async function crawlAndTestUrl(
  * Resilient HTTP/DOM fallback inspection engine when host environment
  * lacks desktop GUI display drivers or sandbox privileges.
  */
-async function runHttpFallbackScan(
+export async function runHttpFallbackScan(
   formattedUrl: string,
   config: ScanConfig,
   emit: (type: CrawlProgressEvent['type'], message: string, suite?: string, screenshotBase64?: string) => void,
