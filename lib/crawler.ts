@@ -66,7 +66,10 @@ export async function crawlAndTestUrl(
 
   // Launch primary Chromium browser
   emit('ACTION', 'Launching primary Chromium headless browser...');
-  const primaryBrowser = await chromium.launch({ headless: true });
+  const primaryBrowser = await chromium.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+  });
 
   // Launch additional browsers only if cross-browser is enabled
   let firefoxBrowser: Browser | null = null;
