@@ -1,20 +1,20 @@
-FROM mcr.microsoft.com/playwright:v1.46.0-jammy
+FROM node:20-slim
 
 WORKDIR /app
 
-# Copy package files
+# Copy package manifests
 COPY package*.json ./
 
-# Install Node dependencies
+# Install dependencies (skipping browser binary download during build for instant deployment)
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 RUN npm install
 
-# Copy project files
+# Copy source code
 COPY . .
 
-# Build Next.js
+# Build Next.js production bundle
 RUN npm run build
 
-# Expose Next.js port
 EXPOSE 3000
 
 ENV PORT=3000
