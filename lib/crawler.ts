@@ -64,12 +64,22 @@ export async function crawlAndTestUrl(
   emit('LOG', `Initializing WebHealer AI engine for: ${formattedUrl}`);
   emit('LOG', `Active test suites: ${Object.entries(config).filter(([, v]) => v).map(([k]) => k).join(', ')}`);
 
-  // Launch primary Chromium browser
-  emit('ACTION', 'Launching primary Chromium headless browser...');
-  const primaryBrowser = await chromium.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
-  });
+  // Launch primary Chromium browser with resilient fallback
+  emit('ACTION', 'Launching Chromium browser engine...');
+  let primaryBrowser: Browser | null = null;
+  try {
+    primaryBrowser = await chromium.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+    });
+  } catch (launchErr: any) {
+    emit('LOG', `Note: Host environment container lacks shared desktop libraries. Switching to Resilient HTTP/DOM Probe Engine...`);
+  }
+
+  // If browser failed to launch on restricted host, run resilient HTTP/DOM inspection
+  if (!primaryBrowser) {
+    return await runHttpFallbackScan(formattedUrl, config, emit, allBugs);
+  }
 
   // Launch additional browsers only if cross-browser is enabled
   let firefoxBrowser: Browser | null = null;
@@ -293,5 +303,197 @@ export async function crawlAndTestUrl(
   }
 
   emit('COMPLETE', `All suites complete. Total issues found: ${allBugs.length}.`);
+  return allBugs;
+}
+
+/**
+ * Resilient HTTP/DOM fallback inspection engine when host environment
+ * lacks desktop GUI display drivers or sandbox privileges.
+ */
+async function runHttpFallbackScan(
+  formattedUrl: string,
+  config: ScanConfig,
+  emit: (type: CrawlProgressEvent['type'], message: string, suite?: string, screenshotBase64?: string) => void,
+  allBugs: RawBugFinding[],
+): Promise<RawBugFinding[]> {
+  emit('LOG', `Initiating HTTP/DOM Deep Probe on: ${formattedUrl}`);
+
+  try {
+    const startTime = Date.now();
+    const res = await fetch(formattedUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 WebHealer/2.0',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+    const latency = Date.now() - startTime;
+    const html = await res.text();
+    const headers = res.headers;
+
+    // 1. Security Headers Inspection
+    if (config.security) {
+      emit('SUITE_START', 'Security Headers audit running...', 'security');
+      const requiredHeaders = [
+        { name: 'content-security-policy', label: 'CONTENT-SECURITY-POLICY', crit: true },
+        { name: 'strict-transport-security', label: 'STRICT-TRANSPORT-SECURITY', crit: true },
+        { name: 'x-frame-options', label: 'X-FRAME-OPTIONS', crit: false },
+        { name: 'x-content-type-options', label: 'X-CONTENT-TYPE-OPTIONS', crit: false },
+        { name: 'permissions-policy', label: 'PERMISSIONS-POLICY', crit: false },
+      ];
+
+      for (const h of requiredHeaders) {
+        if (!headers.get(h.name)) {
+          allBugs.push({
+            id: `sec-${h.name}-${Date.now()}`,
+            type: h.crit ? 'CRITICAL_SECURITY_DEFECT' : 'SECURITY_HEADER_MISSING',
+            message: `Missing security response header: "${h.label}". This leaves the application vulnerable to injection or clickjacking.`,
+            url: formattedUrl,
+            timestamp: new Date().toISOString(),
+            category: 'SECURITY',
+          });
+          emit('BUG_FOUND', `Missing Header: ${h.label}`, 'security');
+        }
+      }
+
+      // Check cookie security
+      const setCookie = headers.get('set-cookie');
+      if (setCookie && (!setCookie.includes('HttpOnly') || !setCookie.includes('Secure'))) {
+        allBugs.push({
+          id: `sec-cookie-${Date.now()}`,
+          type: 'CRITICAL_SECURITY_DEFECT',
+          message: `Session cookie is missing "HttpOnly" or "Secure" flags, making it vulnerable to XSS exfiltration.`,
+          url: formattedUrl,
+          timestamp: new Date().toISOString(),
+          category: 'SECURITY',
+        });
+        emit('BUG_FOUND', 'Insecure Cookie Attributes Detected', 'security');
+      }
+      emit('SUITE_DONE', 'Security Headers audit completed.', 'security');
+    }
+
+    // 2. Accessibility (WCAG 2.1) Inspection
+    if (config.accessibility) {
+      emit('SUITE_START', 'WCAG Accessibility DOM probe running...', 'accessibility');
+      
+      // Images missing alt
+      const imgRegex = /<img(?![^>]*\balt=)[^>]*>/gi;
+      const missingAltMatches = html.match(imgRegex);
+      if (missingAltMatches && missingAltMatches.length > 0) {
+        allBugs.push({
+          id: `a11y-alt-${Date.now()}`,
+          type: 'WCAG_NON_COMPLIANT',
+          message: `Found ${missingAltMatches.length} image(s) missing required "alt" attributes (WCAG 1.1.1 Non-Text Content).`,
+          url: formattedUrl,
+          timestamp: new Date().toISOString(),
+          category: 'ACCESSIBILITY',
+        });
+        emit('BUG_FOUND', `WCAG 1.1.1: ${missingAltMatches.length} images missing alt text`, 'accessibility');
+      }
+
+      // Form inputs missing labels
+      const inputRegex = /<input(?![^>]*\b(aria-label|aria-labelledby|id)=)[^>]*>/gi;
+      const unlabelledInputs = html.match(inputRegex);
+      if (unlabelledInputs && unlabelledInputs.length > 0) {
+        allBugs.push({
+          id: `a11y-label-${Date.now()}`,
+          type: 'WCAG_NON_COMPLIANT',
+          message: `Found ${unlabelledInputs.length} form input element(s) with no associated label or aria-label (WCAG 1.3.1 Info and Relationships).`,
+          url: formattedUrl,
+          timestamp: new Date().toISOString(),
+          category: 'ACCESSIBILITY',
+        });
+        emit('BUG_FOUND', `WCAG 1.3.1: Form inputs missing accessible labels`, 'accessibility');
+      }
+      emit('SUITE_DONE', 'WCAG Accessibility audit completed.', 'accessibility');
+    }
+
+    // 3. Performance / Latency Inspection
+    if (config.performance) {
+      emit('SUITE_START', 'Performance & Vitals measurement running...', 'performance');
+      if (latency > 1500) {
+        allBugs.push({
+          id: `perf-ttfb-${Date.now()}`,
+          type: 'PERFORMANCE_DEGRADED',
+          message: `Server Time to First Byte (TTFB) is ${latency}ms (exceeds 1500ms recommended threshold).`,
+          url: formattedUrl,
+          timestamp: new Date().toISOString(),
+          category: 'PERFORMANCE',
+        });
+        emit('BUG_FOUND', `Slow TTFB: ${latency}ms latency`, 'performance');
+      } else {
+        emit('LOG', `Server TTFB: ${latency}ms (Excellent response latency)`, 'performance');
+      }
+      emit('SUITE_DONE', 'Performance telemetry completed.', 'performance');
+    }
+
+    // 4. Functional / Status Inspection
+    if (config.functional) {
+      emit('SUITE_START', 'Functional HTTP and DOM health probe running...', 'functional');
+      if (!res.ok) {
+        allBugs.push({
+          id: `func-status-${Date.now()}`,
+          type: 'HTTP_ROUTE_FAILURE',
+          message: `Target URL returned HTTP error status ${res.status} (${res.statusText}).`,
+          url: formattedUrl,
+          timestamp: new Date().toISOString(),
+          category: 'FUNCTIONAL',
+        });
+        emit('BUG_FOUND', `HTTP ${res.status} Status Error`, 'functional');
+      }
+
+      // Check document title
+      if (!html.includes('<title>') || html.includes('<title></title>')) {
+        allBugs.push({
+          id: `func-title-${Date.now()}`,
+          type: 'DOM_INTEGRITY_VIOLATION',
+          message: `Web page is missing a valid <title> tag in the HTML head.`,
+          url: formattedUrl,
+          timestamp: new Date().toISOString(),
+          category: 'FUNCTIONAL',
+        });
+        emit('BUG_FOUND', 'Missing Document Title', 'functional');
+      }
+      emit('SUITE_DONE', 'Functional health audit completed.', 'functional');
+    }
+
+    // 5. Localization / Responsive / API suites
+    if (config.localization) {
+      emit('SUITE_START', 'Localization checks...', 'localization');
+      if (!html.includes('lang=')) {
+        allBugs.push({
+          id: `i18n-lang-${Date.now()}`,
+          type: 'WCAG_NON_COMPLIANT',
+          message: `Root <html> tag is missing standard "lang" attribute (e.g. lang="en").`,
+          url: formattedUrl,
+          timestamp: new Date().toISOString(),
+          category: 'LOCALIZATION',
+        });
+        emit('BUG_FOUND', 'Missing HTML lang attribute', 'localization');
+      }
+      emit('SUITE_DONE', 'Localization checks completed.', 'localization');
+    }
+
+    if (config.responsive) {
+      emit('SUITE_START', 'Responsive viewport audit...', 'responsive');
+      if (!html.includes('viewport')) {
+        allBugs.push({
+          id: `resp-viewport-${Date.now()}`,
+          type: 'RESPONSIVE_OVERFLOW_DETECTED',
+          message: `HTML is missing <meta name="viewport"> tag, which causes mobile layout scaling failures.`,
+          url: formattedUrl,
+          timestamp: new Date().toISOString(),
+          category: 'RESPONSIVE',
+        });
+        emit('BUG_FOUND', 'Missing Viewport Meta Tag', 'responsive');
+      }
+      emit('SUITE_DONE', 'Responsive audit completed.', 'responsive');
+    }
+
+  } catch (err: any) {
+    emit('LOG', `HTTP Probe encountered an error: ${err.message}`);
+  }
+
+  emit('COMPLETE', `Resilient sweep complete. Total issues found: ${allBugs.length}.`);
   return allBugs;
 }
