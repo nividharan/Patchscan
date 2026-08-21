@@ -335,18 +335,18 @@ async function runHttpFallbackScan(
     if (config.security) {
       emit('SUITE_START', 'Security Headers audit running...', 'security');
       const requiredHeaders = [
-        { name: 'content-security-policy', label: 'CONTENT-SECURITY-POLICY', crit: true },
-        { name: 'strict-transport-security', label: 'STRICT-TRANSPORT-SECURITY', crit: true },
-        { name: 'x-frame-options', label: 'X-FRAME-OPTIONS', crit: false },
-        { name: 'x-content-type-options', label: 'X-CONTENT-TYPE-OPTIONS', crit: false },
-        { name: 'permissions-policy', label: 'PERMISSIONS-POLICY', crit: false },
+        { name: 'content-security-policy', label: 'CONTENT-SECURITY-POLICY' },
+        { name: 'strict-transport-security', label: 'STRICT-TRANSPORT-SECURITY' },
+        { name: 'x-frame-options', label: 'X-FRAME-OPTIONS' },
+        { name: 'x-content-type-options', label: 'X-CONTENT-TYPE-OPTIONS' },
+        { name: 'permissions-policy', label: 'PERMISSIONS-POLICY' },
       ];
 
       for (const h of requiredHeaders) {
         if (!headers.get(h.name)) {
           allBugs.push({
             id: `sec-${h.name}-${Date.now()}`,
-            type: h.crit ? 'CRITICAL_SECURITY_DEFECT' : 'SECURITY_HEADER_MISSING',
+            type: 'RUNTIME_EXCEPTION',
             message: `Missing security response header: "${h.label}". This leaves the application vulnerable to injection or clickjacking.`,
             url: formattedUrl,
             timestamp: new Date().toISOString(),
@@ -361,7 +361,7 @@ async function runHttpFallbackScan(
       if (setCookie && (!setCookie.includes('HttpOnly') || !setCookie.includes('Secure'))) {
         allBugs.push({
           id: `sec-cookie-${Date.now()}`,
-          type: 'CRITICAL_SECURITY_DEFECT',
+          type: 'RUNTIME_EXCEPTION',
           message: `Session cookie is missing "HttpOnly" or "Secure" flags, making it vulnerable to XSS exfiltration.`,
           url: formattedUrl,
           timestamp: new Date().toISOString(),
@@ -382,7 +382,7 @@ async function runHttpFallbackScan(
       if (missingAltMatches && missingAltMatches.length > 0) {
         allBugs.push({
           id: `a11y-alt-${Date.now()}`,
-          type: 'WCAG_NON_COMPLIANT',
+          type: 'RUNTIME_EXCEPTION',
           message: `Found ${missingAltMatches.length} image(s) missing required "alt" attributes (WCAG 1.1.1 Non-Text Content).`,
           url: formattedUrl,
           timestamp: new Date().toISOString(),
@@ -397,7 +397,7 @@ async function runHttpFallbackScan(
       if (unlabelledInputs && unlabelledInputs.length > 0) {
         allBugs.push({
           id: `a11y-label-${Date.now()}`,
-          type: 'WCAG_NON_COMPLIANT',
+          type: 'RUNTIME_EXCEPTION',
           message: `Found ${unlabelledInputs.length} form input element(s) with no associated label or aria-label (WCAG 1.3.1 Info and Relationships).`,
           url: formattedUrl,
           timestamp: new Date().toISOString(),
@@ -414,7 +414,7 @@ async function runHttpFallbackScan(
       if (latency > 1500) {
         allBugs.push({
           id: `perf-ttfb-${Date.now()}`,
-          type: 'PERFORMANCE_DEGRADED',
+          type: 'RUNTIME_EXCEPTION',
           message: `Server Time to First Byte (TTFB) is ${latency}ms (exceeds 1500ms recommended threshold).`,
           url: formattedUrl,
           timestamp: new Date().toISOString(),
@@ -433,7 +433,7 @@ async function runHttpFallbackScan(
       if (!res.ok) {
         allBugs.push({
           id: `func-status-${Date.now()}`,
-          type: 'HTTP_ROUTE_FAILURE',
+          type: 'NETWORK_FAILURE',
           message: `Target URL returned HTTP error status ${res.status} (${res.statusText}).`,
           url: formattedUrl,
           timestamp: new Date().toISOString(),
@@ -446,7 +446,7 @@ async function runHttpFallbackScan(
       if (!html.includes('<title>') || html.includes('<title></title>')) {
         allBugs.push({
           id: `func-title-${Date.now()}`,
-          type: 'DOM_INTEGRITY_VIOLATION',
+          type: 'RUNTIME_EXCEPTION',
           message: `Web page is missing a valid <title> tag in the HTML head.`,
           url: formattedUrl,
           timestamp: new Date().toISOString(),
@@ -463,7 +463,7 @@ async function runHttpFallbackScan(
       if (!html.includes('lang=')) {
         allBugs.push({
           id: `i18n-lang-${Date.now()}`,
-          type: 'WCAG_NON_COMPLIANT',
+          type: 'RUNTIME_EXCEPTION',
           message: `Root <html> tag is missing standard "lang" attribute (e.g. lang="en").`,
           url: formattedUrl,
           timestamp: new Date().toISOString(),
@@ -479,7 +479,7 @@ async function runHttpFallbackScan(
       if (!html.includes('viewport')) {
         allBugs.push({
           id: `resp-viewport-${Date.now()}`,
-          type: 'RESPONSIVE_OVERFLOW_DETECTED',
+          type: 'RUNTIME_EXCEPTION',
           message: `HTML is missing <meta name="viewport"> tag, which causes mobile layout scaling failures.`,
           url: formattedUrl,
           timestamp: new Date().toISOString(),
