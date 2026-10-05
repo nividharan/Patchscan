@@ -166,74 +166,106 @@ export async function crawlAndTestUrl(
 
     const suitePromises: Promise<RawBugFinding[]>[] = [];
 
-    // Functional (on primary page with fresh navigation)
+    // Helper to safely execute a suite on an isolated page with auto-cleanup
+    const runPageSuite = (
+      name: string,
+      suiteKey: string,
+      runner: (page: Page) => Promise<RawBugFinding[]>
+    ) => {
+      emit('SUITE_START', `${name} starting...`, suiteKey);
+      return (async (): Promise<RawBugFinding[]> => {
+        let page: Page | null = null;
+        try {
+          page = await primaryContext.newPage();
+          await page.goto(formattedUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
+          const bugs = await runner(page);
+          emit('SUITE_DONE', `${name}: ${bugs.length} issue(s) found.`, suiteKey);
+          return bugs;
+        } catch (err: any) {
+          emit('LOG', `${name} skipped or timed out: ${err.message || 'unknown'}`, suiteKey);
+          return [];
+        } finally {
+          if (page) await page.close().catch(() => {});
+        }
+      })();
+    };
+
+    // Functional
     if (config.functional) {
-      emit('SUITE_START', 'Functional Testing starting...', 'functional');
-      const funcPage = await primaryContext.newPage();
-      await funcPage.goto(formattedUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
       suitePromises.push(
-        runFunctionalTests(funcPage, formattedUrl, makeLogger('functional'))
-          .then(bugs => { emit('SUITE_DONE', `Functional: ${bugs.length} issue(s) found.`, 'functional'); funcPage.close(); return bugs; })
-          .catch(() => [])
+        runPageSuite('Functional Testing', 'functional', (page) =>
+          runFunctionalTests(page, formattedUrl, makeLogger('functional'))
+        )
       );
     }
 
     // Accessibility
     if (config.accessibility) {
-      emit('SUITE_START', 'Accessibility Testing starting...', 'accessibility');
-      const a11yPage = await primaryContext.newPage();
-      await a11yPage.goto(formattedUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
       suitePromises.push(
-        runAccessibilityTests(a11yPage, formattedUrl, makeLogger('accessibility'))
-          .then(bugs => { emit('SUITE_DONE', `Accessibility: ${bugs.length} issue(s) found.`, 'accessibility'); a11yPage.close(); return bugs; })
-          .catch(() => [])
+        runPageSuite('Accessibility Testing', 'accessibility', (page) =>
+          runAccessibilityTests(page, formattedUrl, makeLogger('accessibility'))
+        )
       );
     }
 
     // Security
     if (config.security) {
-      emit('SUITE_START', 'Security Testing starting...', 'security');
-      const secPage = await primaryContext.newPage();
-      await secPage.goto(formattedUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
       suitePromises.push(
-        runSecurityTests(secPage, formattedUrl, makeLogger('security'))
-          .then(bugs => { emit('SUITE_DONE', `Security: ${bugs.length} issue(s) found.`, 'security'); secPage.close(); return bugs; })
-          .catch(() => [])
+        runPageSuite('Security Testing', 'security', (page) =>
+          runSecurityTests(page, formattedUrl, makeLogger('security'))
+        )
       );
     }
 
     // API Monitor
     if (config.apiMonitor) {
       emit('SUITE_START', 'API Monitoring starting...', 'api');
-      const apiPage = await primaryContext.newPage();
       suitePromises.push(
-        runApiMonitorTests(apiPage, formattedUrl, makeLogger('api'))
-          .then(bugs => { emit('SUITE_DONE', `API Monitor: ${bugs.length} issue(s) found.`, 'api'); apiPage.close(); return bugs; })
-          .catch(() => [])
+        (async (): Promise<RawBugFinding[]> => {
+          let apiPage: Page | null = null;
+          try {
+            apiPage = await primaryContext.newPage();
+            const bugs = await runApiMonitorTests(apiPage, formattedUrl, makeLogger('api'));
+            emit('SUITE_DONE', `API Monitor: ${bugs.length} issue(s) found.`, 'api');
+            return bugs;
+          } catch (err: any) {
+            emit('LOG', `API Monitor skipped: ${err.message || 'unknown'}`, 'api');
+            return [];
+          } finally {
+            if (apiPage) await apiPage.close().catch(() => {});
+          }
+        })()
       );
     }
 
     // File Upload/Download
     if (config.fileUpload) {
-      emit('SUITE_START', 'File Upload/Download Testing starting...', 'file');
-      const filePage = await primaryContext.newPage();
-      await filePage.goto(formattedUrl, { waitUntil: 'domcontentloaded', timeout: 15000 });
       suitePromises.push(
-        runFileTests(filePage, formattedUrl, makeLogger('file'))
-          .then(bugs => { emit('SUITE_DONE', `File Testing: ${bugs.length} issue(s) found.`, 'file'); filePage.close(); return bugs; })
-          .catch(() => [])
+        runPageSuite('File Upload/Download Testing', 'file', (page) =>
+          runFileTests(page, formattedUrl, makeLogger('file'))
+        )
       );
     }
 
     // Performance (needs its own context for clean network capture)
     if (config.performance) {
       emit('SUITE_START', 'Performance Testing starting...', 'performance');
-      const perfContext = await primaryBrowser.newContext({ viewport: { width: 1280, height: 720 } });
-      const perfPage = await perfContext.newPage();
       suitePromises.push(
-        runPerformanceTests(perfPage, formattedUrl, makeLogger('performance'))
-          .then(bugs => { emit('SUITE_DONE', `Performance: ${bugs.length} issue(s) found.`, 'performance'); perfContext.close(); return bugs; })
-          .catch(() => [])
+        (async (): Promise<RawBugFinding[]> => {
+          let perfContext = null;
+          try {
+            perfContext = await primaryBrowser.newContext({ viewport: { width: 1280, height: 720 } });
+            const perfPage = await perfContext.newPage();
+            const bugs = await runPerformanceTests(perfPage, formattedUrl, makeLogger('performance'));
+            emit('SUITE_DONE', `Performance: ${bugs.length} issue(s) found.`, 'performance');
+            return bugs;
+          } catch (err: any) {
+            emit('LOG', `Performance suite notice: ${err.message || 'skipped'}`, 'performance');
+            return [];
+          } finally {
+            if (perfContext) await perfContext.close().catch(() => {});
+          }
+        })()
       );
     }
 
@@ -283,8 +315,12 @@ export async function crawlAndTestUrl(
 
     // Await all suites in parallel
     emit('LOG', `Running ${suitePromises.length} test suite(s) in parallel...`);
-    const allSuiteResults = await Promise.all(suitePromises);
-    allSuiteResults.flat().forEach(bug => allBugs.push(bug));
+    const allSuiteResults = await Promise.allSettled(suitePromises);
+    allSuiteResults.forEach(res => {
+      if (res.status === 'fulfilled') {
+        res.value.forEach(bug => allBugs.push(bug));
+      }
+    });
 
     // Final screenshot
     try {

@@ -1,12 +1,12 @@
-FROM node:20-slim
+# Official Microsoft Playwright image with all required Linux browser libraries pre-configured
+FROM mcr.microsoft.com/playwright:v1.46.0-jammy
 
 WORKDIR /app
 
 # Copy package manifests
 COPY package*.json ./
 
-# Install dependencies (skipping browser binary download during build for instant deployment)
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
+# Install dependencies including Playwright browsers
 RUN npm install
 
 # Copy source code

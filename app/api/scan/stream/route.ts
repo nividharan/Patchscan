@@ -1,6 +1,8 @@
 import { NextRequest } from 'next/server';
 import { crawlAndTestUrl, runHttpFallbackScan, ScanConfig, DEFAULT_CONFIG, CrawlProgressEvent } from '@/lib/crawler';
 import { analyzeBugsWithAI } from '@/lib/analyzer';
+import { validateTargetUrl } from '@/lib/url-validator';
+import { scanLimiter } from '@/lib/scan-limiter';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 120;
@@ -14,11 +16,23 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: 'Target URL is required' }, { status: 400 });
     }
 
-    let formattedUrl = url.trim();
-    if (!formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://')) {
-      formattedUrl = `https://${formattedUrl}`;
+    // SSRF Validation
+    const validation = validateTargetUrl(url);
+    if (!validation.isValid || !validation.formattedUrl) {
+      return Response.json({ error: validation.error || 'Invalid target URL' }, { status: 400 });
     }
 
+    const formattedUrl = validation.formattedUrl;
+
+    // Check concurrency limits
+    if (!scanLimiter.acquire()) {
+      return Response.json(
+        { error: 'Server is currently executing maximum concurrent scans. Please try again shortly.' },
+        { status: 429 }
+      );
+    }
+
+    const effectiveApiKey = apiKey || process.env.GEMINI_API_KEY || process.env.OPENAI_API_KEY;
     const scanConfig: ScanConfig = { ...DEFAULT_CONFIG, ...(config || {}) };
 
     const encoder = new TextEncoder();
@@ -74,12 +88,12 @@ export async function POST(req: NextRequest) {
             type: 'EVENT',
             event: {
               type: 'LOG',
-              message: 'Crawl completed. Running AI Forensic Analyzer...',
+              message: 'Crawl completed. Running Multi-LLM Forensic Analyzer...',
               timestamp: new Date().toLocaleTimeString(),
             }
           });
 
-          const reports = await analyzeBugsWithAI(formattedUrl, rawBugs, apiKey);
+          const reports = await analyzeBugsWithAI(formattedUrl, rawBugs, effectiveApiKey);
 
           const byCategory: Record<string, typeof reports> = {};
           for (const r of reports) {
@@ -107,6 +121,8 @@ export async function POST(req: NextRequest) {
         } catch (error: any) {
           send({ type: 'ERROR', error: error.message || 'Scan execution error' });
           controller.close();
+        } finally {
+          scanLimiter.release();
         }
       }
     });
