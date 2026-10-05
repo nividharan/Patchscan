@@ -2,6 +2,7 @@
 
 <div align="center">
 
+[![Live Demo](https://img.shields.io/badge/Live_Demo-Render-46E3B7?style=for-the-badge&logo=render&logoColor=white)](https://patchscan-1.onrender.com)
 [![Next.js](https://img.shields.io/badge/Next.js-14.2-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
 [![Playwright](https://img.shields.io/badge/Playwright-1.46-2EAD33?style=for-the-badge&logo=playwright&logoColor=white)](https://playwright.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.5-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
@@ -11,7 +12,7 @@
 **Stop Writing Tests. Start Shipping Fixes.**  
 *Autonomous web quality assurance engine that executes 10 parallel Playwright sweeps on any target URL and synthesizes ready-to-run `.spec.ts` reproduction tests and unified `.diff` code patches in under 60 seconds.*
 
-[Architecture](#-architecture--tech-stack) • [10 QA Suites](#-the-10-parallel-qa-suites) • [Roadmap](#-roadmap)
+[🌐 Live Demo](https://patchscan-1.onrender.com) • [Architecture](#-architecture--tech-stack) • [10 QA Suites](#-the-10-parallel-qa-suites) • [Roadmap](#-roadmap)
 
 </div>
 
@@ -96,6 +97,13 @@ Playwright `.spec.ts` Repro Test              Unified `.diff` Code Patch
 **Nividharan**  
 - GitHub: [@nividharan](https://github.com/nividharan)  
 - Email: [nividharan452007@gmail.com](mailto:nividharan452007@gmail.com)
+
+---
+
+## 🌐 Live Deployment
+
+* **Production URL**: [https://patchscan-1.onrender.com](https://patchscan-1.onrender.com)
+* **Cloud Platform**: Render (Docker container with native Playwright Chromium engine)
 
 ---
 
