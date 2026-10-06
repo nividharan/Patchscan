@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "WebHealer AI — Autonomous Web QA Agent",
-  description: "Autonomous AI QA tester that crawls any live website, finds bugs, and generates Playwright tests with code fixes.",
+  title: "PatchScan — Vulnerability & Patch Management Platform",
+  description: "Enterprise vulnerability scanner for servers, cloud clusters, and software stacks with automated 1-click patch remediation.",
 };
 
 export default function RootLayout({
@@ -12,8 +12,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
-      <body className="bg-[#090d16] text-slate-100 min-h-screen antialiased selection:bg-indigo-500 selection:text-white">
+    <html lang="en">
+      <body className="bg-[#F8FAFC] text-slate-900 min-h-screen antialiased selection:bg-blue-600 selection:text-white">
         {children}
       </body>
     </html>
